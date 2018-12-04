@@ -822,7 +822,7 @@ class runbot_build(models.Model):
         cmd, mods = build._cmd()
         if os.path.exists(build._server('addons/im_livechat')):
             cmd += ["--workers", "2"]
-            cmd += ["--longpolling-port", "%d" % (build.port + 1)]
+            cmd += ["--longpolling-port", "8070"]
             cmd += ["--max-cron-threads", "1"]
         else:
             # not sure, to avoid old server to check other dbs
@@ -835,4 +835,4 @@ class runbot_build(models.Model):
                 cmd += ['--db-filter', '%d.*$']
             else:
                 cmd += ['--db-filter', '%s.*$' % build.dest]
-        return self._spawn(cmd, lock_path, log_path, build._path(), '%s_job_30_run' % build.dest, cpu_limit=None)
+        return self._spawn(cmd, lock_path, log_path, build._path(), '%s_job_30_run' % build.dest, cpu_limit=None, exposed_ports = [build.port, build.port + 1])

@@ -38,14 +38,14 @@ docker build --tag odoo:runbot_tests .
 cd ..
 """
 
-def docker_run(build_dir, log_path, odoo_cmd, container_name, exposed_port=None, cpu_limit=None, preexec_fn=None):
+def docker_run(build_dir, log_path, odoo_cmd, container_name, exposed_ports=None, cpu_limit=None, preexec_fn=None):
     """Run tests in a docker container
     :param build_dir: the build directory that contains the Odoo sources to build.
                       This directory is shared as a volume with the container
     :param log_path: path to the logfile that will contain odoo stdout and stderr
     :param odoo_cmd: command that starts odoo
     :param container_name: used to give a name to the container for later reference
-    :paral exposed_port: if not None, the 8069 port will be exposed as exposed_port number
+    :param exposed_ports: if not None, starting at 8069, ports will be exposed as exposed_ports numbers
     """
     # build cmd
     cmd_chain = []
@@ -71,12 +71,13 @@ def docker_run(build_dir, log_path, odoo_cmd, container_name, exposed_port=None,
         '--volume=/var/run/postgresql:/var/run/postgresql',
         '--volume=%s:/data/build' % build_dir,
     ]
-    if exposed_port:
-        docker_command.extend(['-p', '127.0.0.1:%s:8069' % exposed_port])
+    if exposed_ports:
+        for dp,hp in enumerate(exposed_ports, start=8069):
+            docker_command.extend(['-p', '127.0.0.1:%s:%s' % (hp, dp)])
     if cpu_limit:
         docker_command.extend(['--ulimit', 'cpu=%s' % cpu_limit])
     docker_command.extend(['odoo:runbot_tests', '/bin/bash', '-c', "'%s'" % run_cmd])
-    script_path = os.path.join(build_dir,'docker_start.sh')
+    script_path = os.path.join(build_dir, 'docker_start.sh')
     with open(script_path, 'w') as start_file:
         start_file.write(DOCKERSCRIPT)
         start_file.write(' '.join(docker_command))
@@ -169,6 +170,10 @@ if __name__ == '__main__':
 
     # Test running
     logfile = os.path.join(build_dir, 'logs', 'logs-running.txt')
-    odoo_cmd = ['/data/build/odoo-bin', '-d %s' % db_name, '--db-filter', '%s.*$' % db_name, '--addons-path=/data/build/addons', '-r %s' % os.getlogin(), '-i', 'web',  '--max-cron-threads=0', '--data-dir', '/data/build/datadir']
+    odoo_cmd = ['/data/build/odoo-bin', '-d %s' % db_name,
+        '--db-filter', '%s.*$' % db_name, '--addons-path=/data/build/addons',
+        '-r %s' % os.getlogin(), '-i', 'web',  '--max-cron-threads=1',
+        '--data-dir', '/data/build/datadir', '--workers', '2',
+        '--longpolling-port', '8070']
     container_name = 'odoo-container-test-%s' % datetime.datetime.now().microsecond
-    docker_run(build_dir, logfile, odoo_cmd, container_name, exposed_port=odoo_port, cpu_limit=300)
+    docker_run(build_dir, logfile, odoo_cmd, container_name, exposed_ports=[odoo_port, int(odoo_port) + 1], cpu_limit=300)
