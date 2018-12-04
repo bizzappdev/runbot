@@ -446,8 +446,6 @@ class runbot_build(models.Model):
                 job_method = getattr(self, '_' + build.job)  # compute the job method to run
                 os.makedirs(build._path('logs'), exist_ok=True)
                 os.makedirs(build._path('datadir'), exist_ok=True)
-                os.chmod(build._path('logs'), 0o0777)
-                os.chmod(build._path('datadir'), 0o0777)
                 lock_path = build._path('logs', '%s.lock' % build.job)
                 log_path = build._path('logs', '%s.txt' % build.job)
                 try:
@@ -697,13 +695,13 @@ class runbot_build(models.Model):
 
         return cmd, build.modules
 
-    def _spawn(self, cmd, lock_path, log_path, build_dir, job_name, cpu_limit=None, shell=False, env=None, exposed_port=None):
+    def _spawn(self, cmd, lock_path, log_path, build_dir, job_name, cpu_limit=None, shell=False, env=None, exposed_ports=None):
         def preexec_fn():
             os.setsid()
             # close parent files
             os.closerange(3, os.sysconf("SC_OPEN_MAX"))
             lock(lock_path)
-        return docker_run(build_dir, log_path, cmd, job_name, exposed_port, cpu_limit)
+        return docker_run(build_dir, log_path, cmd, job_name, exposed_ports, cpu_limit)
 
     def _github_status(self):
         """Notify github of failed/successful builds"""

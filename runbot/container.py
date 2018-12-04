@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
 """Containerize builds
 
-The docker image used for the build is tagged like this:
-    :tests-VERSION
-For example:
-    :tests-12.0
-    will user the Docker image odoo:tests-12.0
-
+The docker image used for the build is always tagged like this:
+    odoo:runbot_tests
 This file contains helpers to containerize builds with Docker.
 When testing this file:
     the first parameter should be a directory containing Odoo.
@@ -24,7 +20,23 @@ import time
 
 
 _logger = logging.getLogger(__name__)
+DOCKERUSER = """
+RUN groupadd -g %(group_id)s %(username)s \\
+&& useradd -u %(user_id)s -g %(username)s -G audio,video %(username)s \\
+&& mkdir /home/%(username)s \\
+&& chown -R %(username)s:%(username)s /home/%(username)s \\
+&& echo "%(username)s ALL= NOPASSWD: /usr/bin/pip" > /etc/sudoers.d/pip \\
+&& echo "%(username)s ALL= NOPASSWD: /usr/bin/pip3" >> /etc/sudoers.d/pip
+USER %(username)s
+ENV COVERAGE_FILE /data/build/.coverage
+""" % {'group_id': os.getgid(), 'user_id': os.getuid(), 'username': os.getlogin()}
 
+DOCKERSCRIPT = """#!/bin/sh
+set -e
+cd docker
+docker build --tag odoo:runbot_tests .
+cd ..
+"""
 
 def docker_run(build_dir, log_path, odoo_cmd, container_name, exposed_port=None, cpu_limit=None, preexec_fn=None):
     """Run tests in a docker container
@@ -48,9 +60,11 @@ def docker_run(build_dir, log_path, odoo_cmd, container_name, exposed_port=None,
     docker_dir = os.path.join(build_dir, 'docker')
     os.makedirs(docker_dir, exist_ok=True)
     shutil.copy(os.path.join(os.path.dirname(__file__), 'data', 'Dockerfile'), docker_dir)
-    subprocess.run(['docker', 'build', '--tag', 'odoo:runbot_tests', '.'],cwd=docker_dir)
+    # synchronise the current user with the odoo user inside the Dockerfile
+    with open(os.path.join(docker_dir, 'Dockerfile'), 'a') as df:
+        df.write(DOCKERUSER)
 
-    # start tests
+    # create start script
     docker_command = [
         'docker', 'run', '--rm',
         '--name', container_name,
@@ -61,8 +75,13 @@ def docker_run(build_dir, log_path, odoo_cmd, container_name, exposed_port=None,
         docker_command.extend(['-p', '127.0.0.1:%s:8069' % exposed_port])
     if cpu_limit:
         docker_command.extend(['--ulimit', 'cpu=%s' % cpu_limit])
-    docker_command.extend(['odoo:runbot_tests', '/bin/bash', '-c', run_cmd])
-    docker_run = subprocess.Popen(docker_command, stdout=logs, stderr=logs, preexec_fn=preexec_fn, close_fds=False)
+    docker_command.extend(['odoo:runbot_tests', '/bin/bash', '-c', "'%s'" % run_cmd])
+    script_path = os.path.join(build_dir,'docker_start.sh')
+    with open(script_path, 'w') as start_file:
+        start_file.write(DOCKERSCRIPT)
+        start_file.write(' '.join(docker_command))
+    os.chmod(script_path, 0o0744)
+    docker_run = subprocess.Popen(script_path, stdout=logs, stderr=logs, preexec_fn=preexec_fn, close_fds=False, cwd=build_dir)
     _logger.info('Started Docker container %s', container_name)
     return docker_run.pid
 
@@ -70,11 +89,6 @@ def docker_stop(container_name):
     """Stops the container named container_name"""
     _logger.info('Stopping container %s', container_name)
     dstop = subprocess.run(['docker', 'stop', container_name], stderr=subprocess.PIPE, check=True)
-
-def docker_build(docker_file_path):
-    """Build the test image"""
-    _logger.info('Building docker image')
-    dbuild = subprocess.run(['docker', 'build', '--tag', 'odoo:runbot_tests'])
 
 if __name__ == '__main__':
     _logger.setLevel(logging.DEBUG)
