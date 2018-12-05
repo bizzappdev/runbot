@@ -21,15 +21,15 @@ import time
 
 _logger = logging.getLogger(__name__)
 DOCKERUSER = """
-RUN groupadd -g %(group_id)s %(username)s \\
-&& useradd -u %(user_id)s -g %(username)s -G audio,video %(username)s \\
-&& mkdir /home/%(username)s \\
-&& chown -R %(username)s:%(username)s /home/%(username)s \\
-&& echo "%(username)s ALL= NOPASSWD: /usr/bin/pip" > /etc/sudoers.d/pip \\
-&& echo "%(username)s ALL= NOPASSWD: /usr/bin/pip3" >> /etc/sudoers.d/pip
-USER %(username)s
+RUN groupadd -g %(group_id)s odoo \\
+&& useradd -u %(user_id)s -g odoo -G audio,video odoo \\
+&& mkdir /home/odoo \\
+&& chown -R odoo:odoo /home/odoo \\
+&& echo "odoo ALL= NOPASSWD: /usr/bin/pip" > /etc/sudoers.d/pip \\
+&& echo "odoo ALL= NOPASSWD: /usr/bin/pip3" >> /etc/sudoers.d/pip
+USER odoo
 ENV COVERAGE_FILE /data/build/.coverage
-""" % {'group_id': os.getgid(), 'user_id': os.getuid(), 'username': os.getlogin()}
+""" % {'group_id': os.getgid(), 'user_id': os.getuid()}
 
 DOCKERSCRIPT = """#!/bin/sh
 set -e
