@@ -90,6 +90,11 @@ def docker_stop(container_name):
     """Stops the container named container_name"""
     _logger.info('Stopping container %s', container_name)
     dstop = subprocess.run(['docker', 'stop', container_name], stderr=subprocess.PIPE, check=True)
+    
+def docker_is_running(container_name):
+    """Return True if container is still running"""
+    dinspect = subprocess.run(['docker', 'container', 'inspect', container_name], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+    return True if dinspect.returncode == 0 else False
 
 if __name__ == '__main__':
     _logger.setLevel(logging.DEBUG)
@@ -130,41 +135,12 @@ if __name__ == '__main__':
     time.sleep(3)
 
     # Test full testing
-    import fcntl
-    def lock(filename):
-        fd = os.open(filename, os.O_CREAT | os.O_RDWR, 0o600)
-        if hasattr(os, 'set_inheritable'):
-            os.set_inheritable(fd, True)  # needed since pep-446
-        fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-
-    def locked(filename):
-        result = False
-        try:
-            fd = os.open(filename, os.O_CREAT | os.O_RDWR, 0o600)
-        except OSError:
-            return False
-        try:
-            fcntl.lockf(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:  # since pep-3151 fcntl raises OSError and IOError is now an alias of OSError
-            result = True
-        finally:
-            os.close(fd)
-        return result
-
-    lock_path = os.path.join(build_dir, 'logs', 'lock.txt')
-    def pfn():
-        os.setsid()
-        # close parent files
-        os.closerange(3, os.sysconf("SC_OPEN_MAX"))
-        lock(lock_path)
-
     logfile = os.path.join(build_dir, 'logs', 'logs-full-test.txt')
     container_name = 'odoo-container-test-%s' % datetime.datetime.now().microsecond
-    docker_run(build_dir, logfile, odoo_cmd, container_name, preexec_fn=pfn)
-    time.sleep(1) # give time for the lock
+    docker_run(build_dir, logfile, odoo_cmd, container_name)
+    time.sleep(1) # give time for the container to start
 
-    while locked(lock_path):
+    while docker_is_running(container_name):
         time.sleep(10)
         _logger.info("Waiting for %s to stop", container_name)
 
