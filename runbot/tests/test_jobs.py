@@ -19,13 +19,14 @@ class Test_Jobs(common.TransactionCase):
         })
         self.Build = self.env['runbot.build']
 
+    @patch('odoo.addons.runbot.models.repo.runbot_repo._domain')
     @patch('odoo.addons.runbot.models.repo.runbot_repo._github')
     @patch('odoo.addons.runbot.models.build.runbot_build._cmd')
     @patch('odoo.addons.runbot.models.build.os.path.getmtime')
     @patch('odoo.addons.runbot.models.build.time.localtime')
     @patch('odoo.addons.runbot.models.build.runbot_build._spawn')
     @patch('odoo.addons.runbot.models.build.grep')
-    def test_job_30_failed(self, mock_grep, mock_spawn, mock_localtime, mock_getmtime, mock_cmd, mock_github):
+    def test_job_30_failed(self, mock_grep, mock_spawn, mock_localtime, mock_getmtime, mock_cmd, mock_github, mock_domain):
         a_time = datetime.datetime.now().strftime(DEFAULT_SERVER_DATETIME_FORMAT)
         mock_grep.return_value = False
         mock_spawn.return_value = 2
@@ -33,6 +34,7 @@ class Test_Jobs(common.TransactionCase):
         mock_localtime.return_value = now
         mock_getmtime.return_value = None
         mock_cmd.return_value = ([], [])
+        mock_domain.return_value = 'runbotxx.somewhere.com'
         build = self.Build.create({
             'branch_id': self.branch_master.id,
             'name': 'd0d0caca0000ffffffffffffffffffffffffffff',
@@ -44,4 +46,10 @@ class Test_Jobs(common.TransactionCase):
         self.assertFalse(build.result)
         self.Build._job_30_run(build, '/tmp/x.lock', '/tmp/x.log')
         self.assertEqual(build.result, 'ko')
-        print(mock_github.call_count)
+        expected_status = {
+            'state': 'failure',
+            'target_url': 'http://runbotxx.somewhere.com/runbot/build/%s' % build.id,
+            'description': 'runbot build %s (runtime 0s)' % build.dest,
+            'context': 'ci/runbot'
+        }
+        mock_github.assert_called_with('/repos/:owner/:repo/statuses/d0d0caca0000ffffffffffffffffffffffffffff', expected_status, ignore_errors=True)
