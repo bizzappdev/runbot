@@ -11,7 +11,7 @@ import signal
 import subprocess
 import time
 from subprocess import CalledProcessError
-from ..common import dt2time, fqdn, now, locked, grep, time2str, rfind, uniq_list, local_pgadmin_cursor, lock, get_py_version
+from ..common import dt2time, fqdn, now, grep, time2str, rfind, uniq_list, local_pgadmin_cursor, get_py_version
 from ..container import docker_run, docker_stop
 from odoo import models, fields, api
 from odoo.exceptions import UserError
@@ -387,6 +387,10 @@ class runbot_build(models.Model):
             l[0] = "%s %s" % (build.dest, l[0])
             _logger.debug(*l)
 
+    def _docker_job_name(self):
+        self.ensure_one()
+        return '%s'
+
     def _schedule(self):
         """schedule the build"""
         jobs = self._list_jobs()
@@ -696,11 +700,6 @@ class runbot_build(models.Model):
         return cmd, build.modules
 
     def _spawn(self, cmd, lock_path, log_path, build_dir, job_name, cpu_limit=None, shell=False, env=None, exposed_ports=None):
-        def preexec_fn():
-            os.setsid()
-            # close parent files
-            os.closerange(3, os.sysconf("SC_OPEN_MAX"))
-            lock(lock_path)
         return docker_run(build_dir, log_path, cmd, job_name, exposed_ports, cpu_limit)
 
     def _github_status(self):
