@@ -387,7 +387,7 @@ class runbot_build(models.Model):
             l[0] = "%s %s" % (build.dest, l[0])
             _logger.debug(*l)
 
-    def _docker_name(self):
+    def _get_docker_name(self):
         self.ensure_one()
         return '%s_%s' % (self.dest, self.job)
 
@@ -743,7 +743,7 @@ class runbot_build(models.Model):
         cmd += ['-d', '%s-base' % build.dest, '-i', 'base', '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
         if build.extra_params:
             cmd.extend(shlex.split(build.extra_params))
-        return docker_run(cmd, log_path, build.path(), build.docker_name, cpu_limit=600)
+        return docker_run(cmd, log_path, build._path(), build._get_docker_name(), cpu_limit=600)
 
     def _job_20_test_all(self, build, log_path):
         build._log('test_all', 'Start test all modules')
@@ -767,7 +767,7 @@ class runbot_build(models.Model):
             cmd = [ get_py_version(build), '-m', 'coverage', 'run', '--branch', '--source', '/data/build'] + omit + cmd
         # reset job_start to an accurate job_20 job_time
         build.write({'job_start': now()})
-        return docker_run(cmd, log_path, build.path(), build.docker_name, cpu_limit=cpu_limit)
+        return docker_run(cmd, log_path, build._path(), build._get_docker_name(), cpu_limit=cpu_limit)
 
     def _job_21_coverage_html(self, build, log_path):
         if not build.coverage:
@@ -776,7 +776,7 @@ class runbot_build(models.Model):
         cov_path = build._path('coverage')
         os.makedirs(cov_path, exist_ok=True)
         cmd = [ get_py_version(build), "-m", "coverage", "html", "-d", "/data/build/coverage", "--ignore-errors"]
-        return docker_run(cmd, log_path, build.path(), build.docker_name)
+        return docker_run(cmd, log_path, build._path(), build._get_docker_name())
 
     def _job_22_coverage_result(self, build, log_path):
         if not build.coverage:
@@ -828,4 +828,4 @@ class runbot_build(models.Model):
                 cmd += ['--db-filter', '%d.*$']
             else:
                 cmd += ['--db-filter', '%s.*$' % build.dest]
-        return docker_run(cmd, log_path, build.path(), build.docker_name, exposed_ports = [build.port, build.port + 1])
+        return docker_run(cmd, log_path, build._path(), build._get_docker_name(), exposed_ports = [build.port, build.port + 1])
