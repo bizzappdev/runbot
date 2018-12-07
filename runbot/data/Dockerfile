@@ -40,11 +40,19 @@ RUN curl -sSL https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-li
     && chmod +x /usr/local/bin/phantomjs \
     && rm -f /tmp/phantomjs.tar.bz2
 
-# Install wkhtml and setup odoo user
+# Install wkhtml
 RUN curl -sSL https://github.com/wkhtmltopdf/wkhtmltopdf/releases/download/0.12.5/wkhtmltox_0.12.5-1.stretch_amd64.deb -o /tmp/wkhtml.deb \
     && dpkg --force-depends -i /tmp/wkhtml.deb \
     && apt-get install -y -f --no-install-recommends \
     && rm /tmp/wkhtml.deb
+
+# Install rtlcss
+RUN curl -sSL https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - \
+    && echo "deb https://deb.nodesource.com/node_8.x stretch main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y nodejs
+
+RUN npm install -g rtlcss
 
 # Install Odoo Debian dependencies
 ADD https://raw.githubusercontent.com/odoo/odoo/10.0/debian/control /tmp/p2-control

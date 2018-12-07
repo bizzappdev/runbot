@@ -12,7 +12,7 @@ import subprocess
 import time
 from subprocess import CalledProcessError
 from ..common import dt2time, fqdn, now, grep, time2str, rfind, uniq_list, local_pgadmin_cursor, get_py_version
-from ..container import docker_run, docker_stop
+from ..container import docker_run, docker_stop, docker_is_running
 from odoo import models, fields, api
 from odoo.exceptions import UserError
 from odoo.http import request
@@ -387,9 +387,9 @@ class runbot_build(models.Model):
             l[0] = "%s %s" % (build.dest, l[0])
             _logger.debug(*l)
 
-    def _docker_job_name(self):
+    def _docker_name(self):
         self.ensure_one()
-        return '%s'
+        return '%s_%s' % (self.dest, self.job)
 
     def _schedule(self):
         """schedule the build"""
@@ -417,8 +417,7 @@ class runbot_build(models.Model):
                 build.write(values)
             else:
                 # check if current job is finished
-                lock_path = build._path('logs', '%s.lock' % build.job)
-                if locked(lock_path):
+                if docker_is_running(build._get_container_name()):
                     # kill if overpassed
                     timeout = (build.branch_id.job_timeout or default_timeout) * 60 * ( build.coverage and 1.5 or 1)
                     if build.job != jobs[-1] and build.job_time > timeout:
@@ -450,10 +449,9 @@ class runbot_build(models.Model):
                 job_method = getattr(self, '_' + build.job)  # compute the job method to run
                 os.makedirs(build._path('logs'), exist_ok=True)
                 os.makedirs(build._path('datadir'), exist_ok=True)
-                lock_path = build._path('logs', '%s.lock' % build.job)
                 log_path = build._path('logs', '%s.txt' % build.job)
                 try:
-                    pid = job_method(build, lock_path, log_path)
+                    pid = job_method(build, log_path)
                     build.write({'pid': pid})
                 except Exception:
                     _logger.exception('%s failed running method %s', build.dest, build.job)
@@ -699,9 +697,6 @@ class runbot_build(models.Model):
 
         return cmd, build.modules
 
-    def _spawn(self, cmd, lock_path, log_path, build_dir, job_name, cpu_limit=None, shell=False, env=None, exposed_ports=None):
-        return docker_run(build_dir, log_path, cmd, job_name, exposed_ports, cpu_limit)
-
     def _github_status(self):
         """Notify github of failed/successful builds"""
         runbot_domain = self.env['runbot.repo']._domain()
@@ -730,15 +725,15 @@ class runbot_build(models.Model):
                 repo._github('/repos/:owner/:repo/statuses/%s' % commit_hash, status, ignore_errors=True)
 
     # Jobs definitions
-    # They all need "build, lock_pathn log_path" parameters
-    def _job_00_init(self, build, lock_path, log_path):
+    # They all need "build log_path" parameters
+    def _job_00_init(self, build, log_path):
         build._log('init', 'Init build environment')
         # notify pending build - avoid confusing users by saying nothing
         build._github_status()
         build._checkout()
         return -2
 
-    def _job_10_test_base(self, build, lock_path, log_path):
+    def _job_10_test_base(self, build, log_path):
         build._log('test_base', 'Start test base module')
         # run base test
         self._local_pg_createdb("%s-base" % build.dest)
@@ -748,9 +743,9 @@ class runbot_build(models.Model):
         cmd += ['-d', '%s-base' % build.dest, '-i', 'base', '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
         if build.extra_params:
             cmd.extend(shlex.split(build.extra_params))
-        return self._spawn(cmd, lock_path, log_path, build._path(), '%s_job_10_test_base' % build.dest, cpu_limit=600)
+        return docker_run(cmd, log_path, build.path(), build.docker_name, cpu_limit=600)
 
-    def _job_20_test_all(self, build, lock_path, log_path):
+    def _job_20_test_all(self, build, log_path):
         build._log('test_all', 'Start test all modules')
         cpu_limit = 2400
         self._local_pg_createdb("%s-all" % build.dest)
@@ -772,19 +767,18 @@ class runbot_build(models.Model):
             cmd = [ get_py_version(build), '-m', 'coverage', 'run', '--branch', '--source', '/data/build'] + omit + cmd
         # reset job_start to an accurate job_20 job_time
         build.write({'job_start': now()})
-        return self._spawn(cmd, lock_path, log_path, build._path(), '%s_job_20_test_all' % build.dest, cpu_limit=cpu_limit)
+        return docker_run(cmd, log_path, build.path(), build.docker_name, cpu_limit=cpu_limit)
 
-    def _job_21_coverage_html(self, build, lock_path, log_path):
+    def _job_21_coverage_html(self, build, log_path):
         if not build.coverage:
             return -2
         build._log('coverage_html', 'Start generating coverage html')
         cov_path = build._path('coverage')
         os.makedirs(cov_path, exist_ok=True)
         cmd = [ get_py_version(build), "-m", "coverage", "html", "-d", "/data/build/coverage", "--ignore-errors"]
-        job_name = '%s_job_21_coverage_html' % build.dest
-        return self._spawn(cmd, lock_path, log_path, build._path(), job_name)
+        return docker_run(cmd, log_path, build.path(), build.docker_name)
 
-    def _job_22_coverage_result(self, build, lock_path, log_path):
+    def _job_22_coverage_result(self, build, log_path):
         if not build.coverage:
             return -2
         build._log('coverage_result', 'Start getting coverage result')
@@ -798,7 +792,7 @@ class runbot_build(models.Model):
             build._log('coverage_result', 'Coverage file not found')
         return -2  # nothing to wait for
 
-    def _job_30_run(self, build, lock_path, log_path):
+    def _job_30_run(self, build, log_path):
         # adjust job_end to record an accurate job_20 job_time
         build._log('run', 'Start running build %s' % build.dest)
         log_all = build._path('logs', 'job_20_test_all.txt')
@@ -834,4 +828,4 @@ class runbot_build(models.Model):
                 cmd += ['--db-filter', '%d.*$']
             else:
                 cmd += ['--db-filter', '%s.*$' % build.dest]
-        return self._spawn(cmd, lock_path, log_path, build._path(), '%s_job_30_run' % build.dest, cpu_limit=None, exposed_ports = [build.port, build.port + 1])
+        return docker_run(cmd, log_path, build.path(), build.docker_name, exposed_ports = [build.port, build.port + 1])

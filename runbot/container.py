@@ -38,12 +38,12 @@ docker build --tag odoo:runbot_tests .
 cd ..
 """
 
-def docker_run(build_dir, log_path, odoo_cmd, container_name, exposed_ports=None, cpu_limit=None, preexec_fn=None):
+def docker_run(odoo_cmd, log_path, build_dir, container_name, exposed_ports=None, cpu_limit=None, preexec_fn=None):
     """Run tests in a docker container
+    :param odoo_cmd: command that starts odoo
+    :param log_path: path to the logfile that will contain odoo stdout and stderr
     :param build_dir: the build directory that contains the Odoo sources to build.
                       This directory is shared as a volume with the container
-    :param log_path: path to the logfile that will contain odoo stdout and stderr
-    :param odoo_cmd: command that starts odoo
     :param container_name: used to give a name to the container for later reference
     :param exposed_ports: if not None, starting at 8069, ports will be exposed as exposed_ports numbers
     """
