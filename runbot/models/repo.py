@@ -23,6 +23,15 @@ class runbot_repo(models.Model):
     _name = "runbot.repo"
     #BAD CUST
     _inherit = ['mail.thread', 'mail.activity.mixin']
+
+    @api.model
+    def _get_dependency_id(self):
+        return self.search(['|', ('name', 'ilike', 'odoo/odoo.git'),
+                            ('name', 'ilike', 'odoo/enterprise.git')]).ids
+
+    @api.model
+    def _get_group_ids(self)
+        return self.env.ref('base.group_portal').id
     #BAD CUST END
 
     name = fields.Char('Repository', required=True)
@@ -30,7 +39,7 @@ class runbot_repo(models.Model):
     sequence = fields.Integer('Sequence')
     path = fields.Char(compute='_get_path', string='Directory', readonly=True)
     base = fields.Char(compute='_get_base_url', string='Base URL', readonly=True)  # Could be renamed to a more explicit name like base_url
-    nginx = fields.Boolean('Nginx')
+    nginx = fields.Boolean('Nginx', default=True)
     mode = fields.Selection([('disabled', 'Disabled'),
                              ('poll', 'Poll'),
                              ('hook', 'Hook')],
@@ -47,10 +56,11 @@ class runbot_repo(models.Model):
 
     dependency_ids = fields.Many2many(
         'runbot.repo', 'runbot_repo_dep_rel', column1='dependant_id', column2='dependency_id',
-        string='Extra dependencies',
+        string='Extra dependencies', default=_get_dependency_id,
         help="Community addon repos which need to be present to run tests.")
     token = fields.Char("Github token", groups="runbot.group_runbot_admin")
-    group_ids = fields.Many2many('res.groups', string='Limited to groups')
+    group_ids = fields.Many2many('res.groups', string='Limited to groups',
+                                 default=_get_group_ids)
     #BAD Cust
     get_pull = fields.Boolean('Get Pull', default=True)
     template_db =fields.char('Product Database')
