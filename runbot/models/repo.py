@@ -31,6 +31,7 @@ class runbot_repo(models.Model):
 
     @api.model
     def _get_group_ids(self):
+        return False
         return self.env.ref('base.group_portal').id
     #BAD CUST END
 

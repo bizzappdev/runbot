@@ -598,9 +598,8 @@ class runbot_build(models.Model):
             dbname, (template and ' -T %s'%template or '')
         ))
         with local_pgadmin_cursor() as local_cr:
-            local_cr.execute("""CREATE DATABASE "%s" TEMPLATE %s LC_COLLATE 'C'
-                             ENCODING 'unicode'""" % (
-                                 dbname, (template and template or 'template0')))
+            local_cr.execute("""CREATE DATABASE "%s" TEMPLATE %s """ % (
+                dbname, (template and template or 'template0')))
 
     def _log(self, func, message):
         self.ensure_one()
@@ -771,7 +770,7 @@ class runbot_build(models.Model):
         cmd, mods = build._cmd()
         if grep(build._server("tools/config.py"), "test-enable"):
             cmd.append("--test-enable")
-        cmd += ['-d', '%s-all' % build.dest, '-i', 'all', '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
+        cmd += ['-d', '%s-all' % build.dest, '-i', 'base', '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
         if build.extra_params:
             cmd.extend(shlex.split(build.extra_params))
         return self._spawn(cmd, lock_path, log_path, cpu_limit=600)
@@ -781,6 +780,7 @@ class runbot_build(models.Model):
         cpu_limit = 2400
         self._local_pg_createdb("%s-prod" % build.dest,
                                 build.repo_id.template_db)
+
         cmd, mods = build._cmd()
         #if grep(build._server("tools/config.py"), "test-enable"):
         #    cmd.append("--test-enable")
@@ -868,4 +868,11 @@ class runbot_build(models.Model):
                 cmd += ['--db-filter', '%d.*$']
             else:
                 cmd += ['--db-filter', '%s.*$' % build.dest]
+        if build.repo_id.template_db:
+            if not os.path.exists(os.path.join(build._path('datadir'), 'filestore', "%s-prod" % build.dest)):
+                os.makedirs(
+                    os.path.join(build._path('datadir'), 'filestore', "%s-prod" % build.dest)
+                )
+            fl_cmd = "cp %s/* %s -Rf" %(os.path.join(config['data_dir'], 'filestore', build.repo_id.template_db) , os.path.join(build._path('datadir'), 'filestore', "%s-prod" % build.dest))
+            os.system(fl_cmd)
         return self._spawn(cmd, lock_path, log_path, cpu_limit=None)
