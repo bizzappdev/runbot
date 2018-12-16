@@ -48,6 +48,8 @@ class runbot_repo(models.Model):
         help="Community addon repos which need to be present to run tests.")
     token = fields.Char("Github token", groups="runbot.group_runbot_admin")
     group_ids = fields.Many2many('res.groups', string='Limited to groups')
+    #BAD Cust
+    get_pull = fields.Boolean('Get Pull', default=True)
 
     def _root(self):
         """Return root directory of repository"""
@@ -143,11 +145,21 @@ class runbot_repo(models.Model):
                               repo.name, int(t0 - fetch_time), int(t0 - dt2time(repo.hook_time)))
                 return
 
-        repo._git(['fetch', '-p', 'origin', '+refs/heads/*:refs/heads/*', '+refs/pull/*/head:refs/pull/*'])
+        #BAD Cust
+        if repo.get_pull:
+            repo._git(['fetch', '-p', 'origin', '+refs/heads/*:refs/heads/*', '+refs/pull/*/head:refs/pull/*'])
+        else:
+            repo._git(['fetch', '-p', 'origin', '+refs/heads/*:refs/heads/*'])
+        #BAD Cust End
 
         fields = ['refname', 'objectname', 'committerdate:iso8601', 'authorname', 'authoremail', 'subject', 'committername', 'committeremail']
         fmt = "%00".join(["%(" + field + ")" for field in fields])
-        git_refs = repo._git(['for-each-ref', '--format', fmt, '--sort=-committerdate', 'refs/heads', 'refs/pull'])
+        #BAD Cust
+        if repo.get_pull:
+            git_refs = repo._git(['for-each-ref', '--format', fmt, '--sort=-committerdate', 'refs/heads', 'refs/pull'])
+        else:
+            git_refs = repo._git(['for-each-ref', '--format', fmt, '--sort=-committerdate', 'refs/heads'])
+        #BAD Cust End
         git_refs = git_refs.strip()
 
         refs = [[field for field in line.split('\x00')] for line in git_refs.split('\n')]
@@ -176,6 +188,8 @@ class runbot_repo(models.Model):
                 _logger.debug('repo %s found new branch %s', repo.name, name)
                 branch_id = Branch.create({'repo_id': repo.id, 'name': name}).id
             branch = Branch.browse([branch_id])[0]
+            if branch.skip_build:
+                continue
 
             # skip the build for old branches (Could be checked before creating the branch in DB ?)
             if dateutil.parser.parse(date[:19]) + datetime.timedelta(days=max_age) < datetime.datetime.now():

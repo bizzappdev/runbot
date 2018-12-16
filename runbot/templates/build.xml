@@ -22,7 +22,7 @@
         <t t-if="bu['revdep_build_ids']">
             <small class="pull-right">Dep builds:
                 <t t-foreach="bu['revdep_build_ids']" t-as="rbu">
-                            <a t-attf-href="/runbot/build/{{rbu['id']}}" aria-label="Build details" data-toggle="tooltip" t-attf-title="{{rbu['repo_id']['name']}}">
+                            <a target="_blank" t-attf-href="/runbot/build/{{rbu['id']}}" aria-label="Build details" data-toggle="tooltip" t-attf-title="{{rbu['repo_id']['name']}}">
                             <t t-if="rbu['result']=='ok'"><i class="text-success fa fa-thumbs-up"/></t>
                             <t t-if="rbu['result']=='ko'"><i class="text-danger fa fa-thumbs-down"/></t>
                             <t t-if="rbu['result']=='warn'"><i class="text-warning fa fa-warning"/></t>
@@ -40,18 +40,18 @@
     <template id="runbot.build_button">
         <div t-attf-class="pull-right">
             <div t-attf-class="btn-group {{klass}}">
-                <a t-if="bu['state']=='running'" t-attf-href="http://{{bu['domain']}}/?db={{bu['real_dest']}}-all" class="btn btn-primary" title="Sign in on this build" aria-label="Sign in on this build"><i class="fa fa-sign-in"/></a>
-                <a t-attf-href="/runbot/build/{{bu['id']}}" class="btn btn-default" title="Build details" aria-label="Build details"><i class="fa fa-file-text-o"/></a>
-                <a t-attf-href="https://#{repo.base}/commit/#{bu['name']}" class="btn btn-default" title="Open commit on GitHub" aria-label="Open commit on GitHub"><i class="fa fa-github"/></a>
+                <a t-if="bu['state']=='running'" target="_blank" t-attf-href="http://{{bu['domain']}}/?db={{bu['real_dest']}}-all" class="btn btn-primary" title="Sign in on this build" aria-label="Sign in on this build"><i class="fa fa-sign-in"/></a>
+                <a target="_blank" t-attf-href="/runbot/build/{{bu['id']}}" class="btn btn-default" title="Build details" aria-label="Build details"><i class="fa fa-file-text-o"/></a>
+                <a target="_blank" t-attf-href="https://#{repo.base}/commit/#{bu['name']}" class="btn btn-default" title="Open commit on GitHub" aria-label="Open commit on GitHub"><i class="fa fa-github"/></a>
                 <button class="btn btn-default dropdown-toggle" data-toggle="dropdown" title="Build options" aria-label="Build options" aria-expanded="false"><i class="fa fa-cog"/><span class="caret"></span></button>
                 <ul class="dropdown-menu" role="menu">
                     <li t-if="bu['result']=='skipped'" groups="runbot.group_runbot_admin">
                         <a href="#" class="runbot-rebuild" t-att-data-runbot-build="bu['id']">Force Build <i class="fa fa-level-up"></i></a>
                     </li>
                     <t t-if="bu['state']=='running'">
-                        <li><a t-attf-href="http://{{bu['domain']}}/?db={{bu['real_dest']}}-all">Connect all <i class="fa fa-sign-in"></i></a></li>
-                        <li><a t-attf-href="http://{{bu['domain']}}/?db={{bu['real_dest']}}-base">Connect base <i class="fa fa-sign-in"></i></a></li>
-                        <li><a t-attf-href="http://{{bu['domain']}}/">Connect <i class="fa fa-sign-in"></i></a></li>
+                        <li><a target="_blank" t-attf-href="http://{{bu['domain']}}/?db={{bu['real_dest']}}-all">Connect all <i class="fa fa-sign-in"></i></a></li>
+                        <li><a target="_blank" t-attf-href="http://{{bu['domain']}}/?db={{bu['real_dest']}}-base">Connect base <i class="fa fa-sign-in"></i></a></li>
+                        <li><a target="_blank" t-attf-href="http://{{bu['domain']}}/">Connect <i class="fa fa-sign-in"></i></a></li>
                     </t>
                     <li t-if="bu['state'] in ['done','running','deathrow'] and bu_index==0" groups="runbot.group_user">
                         <a href="#" class="runbot-rebuild" t-att-data-runbot-build="bu['id']">Rebuild <i class="fa fa-refresh"/></a>
@@ -60,14 +60,14 @@
                         <a href="#" class="runbot-kill" t-att-data-runbot-build="bu['id']">Kill <i class="fa fa-crosshairs"/></a>
                     </li>
                     <li t-if="bu['state']!='testing' and bu['state']!='pending'" class="divider"></li>
-                    <li><a t-attf-href="/runbot/build/{{bu['id']}}">Logs <i class="fa fa-file-text-o"/></a></li>
-                    <li t-if="bu['host']"><a t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/job_10_test_base.txt">Full base logs <i class="fa fa-file-text-o"/></a></li>
-                    <li t-if="bu['host']"><a t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/job_20_test_all.txt">Full all logs <i class="fa fa-file-text-o"/></a></li>
-                    <li t-if="bu['coverage'] and bu['host']"><a t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/coverage/index.html">Coverage <i class="fa fa-file-text-o"/></a></li>
+                    <li><a target="_blank" t-attf-href="/runbot/build/{{bu['id']}}">Logs <i class="fa fa-file-text-o"/></a></li>
+                    <li t-if="bu['host']"><a target="_blank" t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/job_10_test_base.txt">Full base logs <i class="fa fa-file-text-o"/></a></li>
+                    <li t-if="bu['host']"><a target="_blank" t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/job_20_test_all.txt">Full all logs <i class="fa fa-file-text-o"/></a></li>
+                    <li t-if="bu['coverage'] and bu['host']"><a target="_blank" t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/coverage/index.html">Coverage <i class="fa fa-file-text-o"/></a></li>
                     <li t-if="bu['state']!='pending'" class="divider"></li>
-                    <li><a t-attf-href="{{br['branch'].branch_url}}">Branch or pull <i class="fa fa-github"/></a></li>
-                    <li><a t-attf-href="https://{{repo.base}}/commit/{{bu['name']}}">Commit <i class="fa fa-github"/></a></li>
-                    <li><a t-attf-href="https://{{repo.base}}/compare/{{br['branch'].branch_name}}">Compare <i class="fa fa-github"/></a></li>
+                    <li><a target="_blank" t-attf-href="{{br['branch'].branch_url}}">Branch or pull <i class="fa fa-github"/></a></li>
+                    <li><a target="_blank" t-attf-href="https://{{repo.base}}/commit/{{bu['name']}}">Commit <i class="fa fa-github"/></a></li>
+                    <li><a target="_blank" t-attf-href="https://{{repo.base}}/compare/{{br['branch'].branch_name}}">Compare <i class="fa fa-github"/></a></li>
                     <!-- TODO branch.pull from -->
                     <li class="divider"></li>
                     <li class="disabled"><a href="#">Runtime: <t t-esc="bu['job_time']"/>s</a></li>
@@ -92,8 +92,8 @@
                                 <span class="icon-bar"></span>
                                 <span class="icon-bar"></span>
                               </button>
-                              <a class="navbar-brand" t-attf-href="/runbot/repo/#{ slug(repo) }"><b><t t-esc="repo.base"/></b></a>
-                              <a class="navbar-brand" t-attf-href="/runbot/build/{{build['id']}}">
+                              <a class="navbar-brand" target="_blank" t-attf-href="/runbot/repo/#{ slug(repo) }"><b><t t-esc="repo.base"/></b></a>
+                              <a class="navbar-brand" target="_blank" t-attf-href="/runbot/build/{{build['id']}}">
                                 <t t-esc="build['dest']"/>
                                 <t t-call="runbot.build_name">
                                     <t t-set="bu" t-value="build"/>
@@ -118,15 +118,15 @@
                                   </button>
                                   <ul class="dropdown-menu" role="menu">
                                     <li role="presentation" class="dropdown-header">Level</li>
-                                    <li><a t-att-href="'?' + keep_query('search', 'type', level='debug')"><i t-if="level == 'debug'" class="fa fa-check"/> Debug</a></li>
-                                    <li><a t-att-href="'?' + keep_query('search', 'type', level='info')"><i t-if="level == 'info'" class="fa fa-check"/> Info</a></li>
-                                    <li><a t-att-href="'?' + keep_query('search', 'type', level='warning')"><i t-if="level == 'warning'" class="fa fa-check"/> Warning</a></li>
-                                    <li><a t-att-href="'?' + keep_query('search', 'type', level='error')"><i t-if="level == 'error'" class="fa fa-check"/> Error</a></li>
+                                    <li><a target="_blank" t-att-href="'?' + keep_query('search', 'type', level='debug')"><i t-if="level == 'debug'" class="fa fa-check"/> Debug</a></li>
+                                    <li><a target="_blank" t-att-href="'?' + keep_query('search', 'type', level='info')"><i t-if="level == 'info'" class="fa fa-check"/> Info</a></li>
+                                    <li><a target="_blank" t-att-href="'?' + keep_query('search', 'type', level='warning')"><i t-if="level == 'warning'" class="fa fa-check"/> Warning</a></li>
+                                    <li><a target="_blank" t-att-href="'?' + keep_query('search', 'type', level='error')"><i t-if="level == 'error'" class="fa fa-check"/> Error</a></li>
                                     <li role="presentation" class="dropdown-header">Type</li>
-                                    <li><a t-att-href="'?' + keep_query('search', 'level',type='runbot')"><i t-if="type == 'runbot'" class="fa fa-check"/> Runbot</a></li>
-                                    <li><a t-att-href="'?' + keep_query('search', 'level',type='server')"><i t-if="type == 'server'" class="fa fa-check"/> Server</a></li>
-                                    <li><a t-att-href="'?' + keep_query('search', 'level',type='client')"><i t-if="type == 'client'" class="fa fa-check"/> Client</a></li>
-                                  </ul>
+                                    <li><a target="_blank" t-att-href="'?' + keep_query('search', 'level',type='runbot')"><i t-if="type == 'runbot'" class="fa fa-check"/> Runbot</a></li>
+                                    <li><a target="_blank" t-att-href="'?' + keep_query('search', 'level',type='server')"><i t-if="type == 'server'" class="fa fa-check"/> Server</a></li>
+                                    <li><a target="_blank" t-att-href="'?' + keep_query('search', 'level',type='client')"><i t-if="type == 'client'" class="fa fa-check"/> Client</a></li>
+                                  </ul>    
                                 </div>
                                 <div class="btn-group">
                                   <button type="button" class="btn btn-default">Expand</button>
@@ -142,7 +142,7 @@
                                   <a href="#" class="dropdown-toggle" data-toggle="dropdown" aria-expanded="false">Other builds <b class="caret"></b></a>
                                   <ul class="dropdown-menu">
                                     <t t-foreach='other_builds' t-as='other_build'>
-                                      <li><a t-attf-href="/runbot/build/{{other_build.id}}">
+                                      <li><a  target="_blank" t-attf-href="/runbot/build/{{other_build.id}}">
                                         <t t-esc='other_build.dest'/>
                                         <t t-call="runbot.build_name">
                                           <t t-set="bu" t-value="other_build"/>
@@ -168,7 +168,7 @@
                             Committer: <t t-esc="build['committer']"/><br/>
                             Build host: <t t-esc="build['host']"/><br/>
                         </p>
-                        <p t-if="build['duplicate_of']">Duplicate of <a t-attf-href="/runbot/build/#{build['duplicate_of'].id}"><t t-esc="build['duplicate_of'].dest"/></a></p>
+                        <p t-if="build['duplicate_of']">Duplicate of <a  target="_blank" t-attf-href="/runbot/build/#{build['duplicate_of'].id}"><t t-esc="build['duplicate_of'].dest"/></a></p>
                         <table class="table table-condensed table-striped">
                         <tr>
                             <th>Date</th>
@@ -182,7 +182,7 @@
                                 <td><b t-esc="l.level"/></td>
                                 <td><t t-esc="l.type"/></td>
                                 <td>
-                                    <a t-if="l.type != 'runbot'" t-attf-href="https://{{repo.base}}/blob/{{build['name']}}/{{l.path}}#L{{l.line}}"><t t-esc="l.name"/>:<t t-esc="l.line"/></a> <t t-esc="l.func"/>
+                                    <a t-if="l.type != 'runbot'"  target="_blank" t-attf-href="https://{{repo.base}}/blob/{{build['name']}}/{{l.path}}#L{{l.line}}"><t t-esc="l.name"/>:<t t-esc="l.line"/></a> <t t-esc="l.func"/>
                                     <t t-if="'\n' not in l.message"><t t-esc="l.message"/></t>
                                     <pre t-if="'\n' in l.message" style="margin:0;padding:0; border: none;"><t t-esc="l.message"/></pre>
                                 </td>

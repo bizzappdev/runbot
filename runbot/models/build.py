@@ -187,6 +187,7 @@ class runbot_build(models.Model):
         branches = sorted(branches, key=sort_by_repo)
 
         for branch in branches:
+            logging.info("1111111111111!! %s, %s" %(branch, name))
             if name.startswith(branch['branch_name'] + '-') and self._branch_exists(branch['id']):
                 return result_for(branch, 'prefix')
 

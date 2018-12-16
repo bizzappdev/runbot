@@ -15,6 +15,7 @@
                 <field name="name"/>
                 <field name="mode"/>
                 <field name="nginx"/>
+                <field name="get_pull"/>
                 <field name="duplicate_id"/>
                 <field name="dependency_ids" widget="many2many_tags"/>
                 <field name="modules"/>
