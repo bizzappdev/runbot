@@ -30,7 +30,7 @@ class runbot_repo(models.Model):
                             ('name', 'ilike', 'odoo/enterprise.git')]).ids
 
     @api.model
-    def _get_group_ids(self)
+    def _get_group_ids(self):
         return self.env.ref('base.group_portal').id
     #BAD CUST END
 
