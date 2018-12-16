@@ -592,11 +592,15 @@ class runbot_build(models.Model):
         _logger.debug(' '.join(cmd))
         subprocess.call(cmd)
 
-    def _local_pg_createdb(self, dbname):
+    def _local_pg_createdb(self, dbname, template=''):
         self._local_pg_dropdb(dbname)
-        _logger.debug("createdb %s", dbname)
+        _logger.debug("createdb %s%s", (
+            dbname, (template and ' -T %s'%template or '')
+        ))
         with local_pgadmin_cursor() as local_cr:
-            local_cr.execute("""CREATE DATABASE "%s" TEMPLATE template0 LC_COLLATE 'C' ENCODING 'unicode'""" % dbname)
+            local_cr.execute("""CREATE DATABASE "%s" TEMPLATE %s LC_COLLATE 'C'
+                             ENCODING 'unicode'""" % (
+                                 dbname, (template and template or 'template0')))
 
     def _log(self, func, message):
         self.ensure_one()
@@ -763,11 +767,11 @@ class runbot_build(models.Model):
     def _job_10_test_base(self, build, lock_path, log_path):
         build._log('test_base', 'Start test base module')
         # run base test
-        self._local_pg_createdb("%s-base" % build.dest)
+        self._local_pg_createdb("%s-all" % build.dest)
         cmd, mods = build._cmd()
         if grep(build._server("tools/config.py"), "test-enable"):
             cmd.append("--test-enable")
-        cmd += ['-d', '%s-base' % build.dest, '-i', 'base', '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
+        cmd += ['-d', '%s-all' % build.dest, '-i', 'all', '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
         if build.extra_params:
             cmd.extend(shlex.split(build.extra_params))
         return self._spawn(cmd, lock_path, log_path, cpu_limit=600)
@@ -775,11 +779,13 @@ class runbot_build(models.Model):
     def _job_20_test_all(self, build, lock_path, log_path):
         build._log('test_all', 'Start test all modules')
         cpu_limit = 2400
-        self._local_pg_createdb("%s-all" % build.dest)
+        self._local_pg_createdb("%s-prod" % build.dest,
+                                build.repo_id.template_db)
         cmd, mods = build._cmd()
-        if grep(build._server("tools/config.py"), "test-enable"):
-            cmd.append("--test-enable")
-        cmd += ['-d', '%s-all' % build.dest, '-i', mods, '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
+        #if grep(build._server("tools/config.py"), "test-enable"):
+        #    cmd.append("--test-enable")
+        cmd += ['-d', '%s-prod' % build.dest, '-u', mods, '--stop-after-init',
+                '--log-level=info', '--max-cron-threads=0']
         if build.extra_params:
             cmd.extend(build.extra_params.split(' '))
         env = None
@@ -855,7 +861,7 @@ class runbot_build(models.Model):
             # not sure, to avoid old server to check other dbs
             cmd += ["--max-cron-threads", "0"]
 
-        cmd += ['-d', "%s-all" % build.dest]
+        cmd += ['-d', "%s-prod" % build.dest]
 
         if grep(build._server("tools/config.py"), "db-filter"):
             if build.repo_id.nginx:

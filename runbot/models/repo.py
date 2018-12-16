@@ -63,7 +63,7 @@ class runbot_repo(models.Model):
                                  default=_get_group_ids)
     #BAD Cust
     get_pull = fields.Boolean('Get Pull', default=True)
-    template_db =fields.Char('Product Database')
+    template_db =fields.Char('Production Database')
     #BAD CUST End
 
     def _root(self):
