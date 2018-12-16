@@ -10,12 +10,13 @@
       <field name="category_id" ref="module_category"/>
       <!-- as public user is inactive, it wont be automatically added
            to this group via implied groups. add it manually -->
-      <field name="users" eval="[(4, ref('base.public_user'))]"/>
     </record>
 
-    <record id="base.group_public" model="res.groups">
+    <!--BAD CUST -->
+    <!--record id="base.group_public" model="res.groups">
       <field name="implied_ids" eval="[(4, ref('runbot.group_user'))]"/>
-    </record>
+    </record-->
+    <!--BAD CUST End-->
 
     <record id="group_runbot_admin" model="res.groups">
       <field name="name">Manager</field>

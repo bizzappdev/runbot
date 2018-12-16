@@ -1,7 +1,7 @@
 <odoo>
   <data>
     <menuitem name="Runbot" id="runbot_menu_root"/>
-    
+
     <record id="repo_form" model="ir.ui.view">
         <field name="name">runbot.repo.form</field>
         <field name="model">runbot.repo</field>
@@ -25,11 +25,18 @@
                 <field name="hook_time"/>
               </group>
             </sheet>
+            <!-- BAD Cust -->
+            <div class="oe_chatter">
+                <field name="message_follower_ids" widget="mail_followers"/>
+                <field name="activity_ids" widget="mail_activity"/>
+                <field name="message_ids" widget="mail_thread"/>
+            </div>
+            <!-- BAD Cust End-->
           </form>
         </field>
     </record>
-          
-    
+
+
     <record id="repo_view_tree" model="ir.ui.view">
         <field name="name">runbot.repo.tree</field>
         <field name="model">runbot.repo</field>
@@ -41,20 +48,20 @@
             </tree>
         </field>
     </record>
-    
+
     <record id="open_view_repo_tree" model="ir.actions.act_window">
         <field name="name">Repositories</field>
         <field name="res_model">runbot.repo</field>
         <field name="view_mode">tree,form</field>
     </record>
-    
+
     <menuitem
-        name="Repositories" 
+        name="Repositories"
         id="runbot_menu_repo_tree"
         parent="runbot_menu_root"
         sequence="10"
         action="open_view_repo_tree"
         />
-    
+
   </data>
 </odoo>

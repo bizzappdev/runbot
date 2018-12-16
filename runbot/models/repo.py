@@ -21,6 +21,9 @@ _logger = logging.getLogger(__name__)
 class runbot_repo(models.Model):
 
     _name = "runbot.repo"
+    #BAD CUST
+    _inherit = ['mail.thread', 'mail.activity.mixin']
+    #BAD CUST END
 
     name = fields.Char('Repository', required=True)
     # branch_ids = fields.One2many('runbot.branch', inverse_name='repo_id') # keep for next version
@@ -50,6 +53,8 @@ class runbot_repo(models.Model):
     group_ids = fields.Many2many('res.groups', string='Limited to groups')
     #BAD Cust
     get_pull = fields.Boolean('Get Pull', default=True)
+    template_db =fields.char('Product Database')
+    #BAD CUST End
 
     def _root(self):
         """Return root directory of repository"""
