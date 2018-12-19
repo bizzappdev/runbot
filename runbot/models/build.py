@@ -784,8 +784,13 @@ class runbot_build(models.Model):
         cmd, mods = build._cmd()
         #if grep(build._server("tools/config.py"), "test-enable"):
         #    cmd.append("--test-enable")
-        cmd += ['-d', '%s-prod' % build.dest, '-u', mods, '--stop-after-init',
-                '--log-level=info', '--max-cron-threads=0']
+        if build.repo_id.template_db:
+            cmd += ['-d', '%s-prod' % build.dest, '-u', mods, '--stop-after-init',
+                    '--log-level=info', '--max-cron-threads=0']
+        else:
+            cmd += ['-d', '%s-prod' % build.dest, '-i', mods, '--stop-after-init',
+                    '--log-level=info', '--max-cron-threads=0']
+
         if build.extra_params:
             cmd.extend(build.extra_params.split(' '))
         env = None
