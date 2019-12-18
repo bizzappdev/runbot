@@ -23,6 +23,7 @@ class runbot_repo(models.Model):
     _name = "runbot.repo"
     #BAD CUST
     _inherit = ['mail.thread', 'mail.activity.mixin']
+    _order = 'sequence'
 
     @api.model
     def _get_dependency_id(self):

@@ -64,8 +64,10 @@
                     </li>
                     <li t-if="bu['state']!='testing' and bu['state']!='pending'" class="divider"></li>
                     <li><a target="_blank" t-attf-href="/runbot/build/{{bu['id']}}">Logs <i class="fa fa-file-text-o"/></a></li>
-                    <li t-if="bu['host']"><a target="_blank" t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/job_10_test_base.txt">Full base logs <i class="fa fa-file-text-o"/></a></li>
-                    <li t-if="bu['host']"><a target="_blank" t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/job_20_test_all.txt">Full all logs <i class="fa fa-file-text-o"/></a></li>
+                    <li t-if="bu['host']"><a target="_blank"
+                            t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/job_10_test_base.txt">Full All logs <i class="fa fa-file-text-o"/></a></li>
+                    <li t-if="bu['host']"><a target="_blank"
+                            t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/logs/job_20_test_all.txt">Full Production logs <i class="fa fa-file-text-o"/></a></li>
                     <li t-if="bu['coverage'] and bu['host']"><a target="_blank" t-attf-href="http://{{bu['host']}}/runbot/static/build/#{bu['real_dest']}/coverage/index.html">Coverage <i class="fa fa-file-text-o"/></a></li>
                     <li t-if="bu['state']!='pending'" class="divider"></li>
                     <li><a target="_blank" t-attf-href="{{br['branch'].branch_url}}">Branch or pull <i class="fa fa-github"/></a></li>
