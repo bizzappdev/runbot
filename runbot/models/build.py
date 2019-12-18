@@ -16,6 +16,8 @@ from odoo import models, fields, api
 from odoo.exceptions import UserError
 from odoo.http import request
 from odoo.tools import config, appdirs
+import contextlib
+import psycopg2
 
 _re_error = r'^(?:\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} \d+ (?:ERROR|CRITICAL) )|(?:Traceback \(most recent call last\):)$'
 _re_warning = r'^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d{3} \d+ WARNING '
@@ -23,6 +25,16 @@ re_job = re.compile('_job_\d')
 
 _logger = logging.getLogger(__name__)
 
+@contextlib.contextmanager
+def custom_db_cr(dbname):
+    cnx = None
+    try:
+        cnx = psycopg2.connect("dbname=%s"%dbname)
+        cnx.autocommit = True  # required for admin commands
+        yield cnx.cursor()
+    finally:
+        if cnx:
+            cnx.close()
 
 class runbot_build(models.Model):
 
@@ -321,10 +333,11 @@ class runbot_build(models.Model):
                 local_cr.execute("""
                     SELECT datname
                       FROM pg_database
-                     WHERE pg_get_userbyid(datdba) = current_user
-                       AND datname LIKE %s
+                     WHERE datname LIKE %s
                 """, [build.dest + '%'])
+                # pg_get_userbyid(datdba) = current_user AND
                 to_delete = local_cr.fetchall()
+                logging.info("1111111111111111111118888888888888888888888\n"%to_delete)
             for db, in to_delete:
                 self._local_pg_dropdb(db)
 
@@ -354,12 +367,14 @@ class runbot_build(models.Model):
                 local_cr.execute("""
                     SELECT datname
                       FROM pg_database
-                     WHERE pg_get_userbyid(datdba) = current_user
+                     WHERE pg_get_userbyid(datdba) = current_user 
                        AND datname ~ '^[0-9]+-.*'
                        AND SUBSTRING(datname, '^([0-9]+)-.*')::int not in %s
 
                 """, [tuple(db_ids)])
+                     #WHERE pg_get_userbyid(datdba) != 'postgres' or pg_get_userbyid(datdba) != current_user 
                 to_delete = local_cr.fetchall()
+                logging.info("11111111111111111! %s"%to_delete)
             for db, in to_delete:
                 self._local_pg_dropdb(db)
 
@@ -490,7 +505,7 @@ class runbot_build(models.Model):
 
         mod_filter = lambda m: (
             m in available_modules and
-            (m in explicit_modules or (not m.startswith(('hw_', 'theme_', 'l10n_')) and
+            (m in explicit_modules or (not m.startswith(('hw_', 'l10n_')) and
                                        m not in blacklist_modules))
         )
         return uniq_list(filter(mod_filter, modules))
@@ -584,7 +599,19 @@ class runbot_build(models.Model):
 
     def _local_pg_dropdb(self, dbname):
         with local_pgadmin_cursor() as local_cr:
-            local_cr.execute('DROP DATABASE IF EXISTS "%s"' % dbname)
+            try:
+                if dbname.startswith('runbot') or dbname.startswith('template') or dbname.startswith('postgres'):
+                    return
+                local_cr.execute('DROP DATABASE IF EXISTS "%s"' % dbname)
+                logging.info("0000000000000000\n\n\n\n000000000000000 %s %s"%(dbname, (dbname.replace('-all','').replace('-prod', '') or '1')))
+                if dbname.endswith('-all') or dbname.endswith('-prod'):
+                    db_user = (dbname.replace('-all','').replace('-prod', '') or '')
+                    try:
+                        local_cr.execute('drop role if exists "%s"' % db_user)
+                    except:
+                        pass
+            except:
+                pass
         # cleanup filestore
         datadir = appdirs.user_data_dir()
         paths = [os.path.join(datadir, pn, 'filestore', dbname) for pn in 'OpenERP Odoo'.split()]
@@ -594,13 +621,40 @@ class runbot_build(models.Model):
 
     def _local_pg_createdb(self, dbname, template=''):
         self._local_pg_dropdb(dbname)
-        _logger.debug("createdb %s%s", (
-            dbname, (template and ' -T %s'%template or '')
+        db_user = (dbname.replace('-all','').replace('-prod', '') or 'odooexp')
+        _logger.debug("createdb %s%s%s", (
+            dbname, ' owner %s' %(db_user or 'odooexp'), (template and ' -T %s'%template or '')
         ))
         with local_pgadmin_cursor() as local_cr:
-            local_cr.execute("""CREATE DATABASE "%s" TEMPLATE %s LC_COLLATE 'C'
-                             ENCODING 'unicode'""" % (
-                                 dbname, (template and template or 'template0')))
+            #local_cr.execute("""create role "%s" WITH LOGIN ENCRYPTED PASSWORD '%s' """%(db_user, db_user))
+            local_cr.execute("""
+            DO
+            $do$
+            BEGIN
+               IF NOT EXISTS (
+                  SELECT                       
+                  FROM   pg_catalog.pg_roles
+                  WHERE  rolname = '%s') THEN
+
+                  CREATE ROLE "%s" LOGIN PASSWORD '%s';
+               END IF;
+            END
+            $do$;
+            """%(db_user, db_user, db_user))
+            local_cr.execute("""CREATE DATABASE "%s" owner '%s' template "%s" """ % (
+                dbname, db_user , (template and template or 'template0')))
+            if template:
+                fl_cmd = """for tbl in `psql -qAt -c "select tablename from pg_tables where schemaname = 'public';" %s` ; do  psql -c "alter table \"$tbl\" owner to \\\"%s\\\"" %s ; done"""%(dbname, db_user, dbname)
+                os.system(fl_cmd)
+
+                fl_cmd = """for tbl in `psql -qAt -c "select sequence_name from information_schema.sequences where sequence_schema = 'public';" %s` ; do  psql -c "alter sequence \"$tbl\" owner to \\\"%s\\\"" %s ; done"""%(dbname, db_user, dbname)
+                os.system(fl_cmd)
+
+                fl_cmd="""for tbl in `psql -qAt -c "select table_name from information_schema.views where table_schema = 'public';" %s` ; do  psql -c "alter view \"$tbl\" owner to \\\"%s\\\"" %s ; done"""%(dbname, db_user, dbname)
+                os.system(fl_cmd)
+               # with custom_db_cr(dbname) as custom_cr:
+               #     logging.info("233333333333333333333333333333 %s"%'REASSIGN OWNED BY odooexp to "%s"'%db_user)
+               #     custom_cr.execute('REASSIGN OWNED BY odooexp to "%s"'%db_user)
 
     def _log(self, func, message):
         self.ensure_one()
@@ -695,6 +749,11 @@ class runbot_build(models.Model):
             if grep(build._server('tools/config.py'), 'log-db-level'):
                 cmd += ["--log-db-level", '25']
 
+        dbname = build.dest
+        db_user = (dbname.replace('-all','').replace('-prod', '') or 'odooexp')
+        cmd += ["--db_user=%s"% db_user]
+        cmd += ["--db_password=%s"% db_user]
+
         if grep(build._server("tools/config.py"), "data-dir"):
             datadir = build._path('datadir')
             if not os.path.exists(datadir):
@@ -704,6 +763,7 @@ class runbot_build(models.Model):
         # if build.branch_id.test_tags:
         #    cmd.extend(['--test_tags', "'%s'" % build.branch_id.test_tags])  # keep for next version
 
+        _logger.info("112222222222222222222 %s"%cmd)
         return cmd, build.modules
 
     def _spawn(self, cmd, lock_path, log_path, cpu_limit=None, shell=False, env=None):
@@ -765,13 +825,21 @@ class runbot_build(models.Model):
         return -2
 
     def _job_10_test_base(self, build, lock_path, log_path):
+        old_builds = self.search([
+            ('branch_id', '=', build.branch_id.id),
+            ('id', '!=', self.id),
+            ('repo_id', '=', self.repo_id.id),
+            ])
+        if old_builds:
+            old_builds._kill(result='manually_killed')
         build._log('test_base', 'Start test base module')
         # run base test
-        self._local_pg_createdb("%s-all" % build.dest)
+        build._local_pg_createdb("%s-all" % build.dest)
         cmd, mods = build._cmd()
-        if grep(build._server("tools/config.py"), "test-enable"):
-            cmd.append("--test-enable")
-        cmd += ['-d', '%s-all' % build.dest, '-i', 'all', '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
+        #if grep(build._server("tools/config.py"), "test-enable"):
+        #    cmd.append("--test-enable")
+        cmd += ['-d', '%s-all' % build.dest, '-i', 'base', '--stop-after-init', '--log-level=test', '--max-cron-threads=0']
+#mods
         if build.extra_params:
             cmd.extend(shlex.split(build.extra_params))
         return self._spawn(cmd, lock_path, log_path, cpu_limit=600)
@@ -779,13 +847,23 @@ class runbot_build(models.Model):
     def _job_20_test_all(self, build, lock_path, log_path):
         build._log('test_all', 'Start test all modules')
         cpu_limit = 2400
-        self._local_pg_createdb("%s-prod" % build.dest,
+        build._local_pg_createdb("%s-prod" % build.dest,
                                 build.repo_id.template_db)
+
         cmd, mods = build._cmd()
         #if grep(build._server("tools/config.py"), "test-enable"):
         #    cmd.append("--test-enable")
-        cmd += ['-d', '%s-prod' % build.dest, '-u', mods, '--stop-after-init',
-                '--log-level=info', '--max-cron-threads=0']
+        if build.repo_id.template_db:
+            cmd += ['-d', '%s-prod' % build.dest, '-u', mods,'-i', 'develop_test_mode', '--stop-after-init',
+                    '--log-level=info', '--max-cron-threads=0']
+        else:
+            if mods:
+                mods += ',develop_test_mode'
+            else:
+                mods = 'develop_test_mode'
+            cmd += ['-d', '%s-prod' % build.dest, '-i', mods, '--stop-after-init',
+                    '--log-level=info', '--max-cron-threads=0']
+
         if build.extra_params:
             cmd.extend(build.extra_params.split(' '))
         env = None
@@ -868,4 +946,11 @@ class runbot_build(models.Model):
                 cmd += ['--db-filter', '%d.*$']
             else:
                 cmd += ['--db-filter', '%s.*$' % build.dest]
+        if build.repo_id.template_db:
+            if not os.path.exists(os.path.join(build._path('datadir'), 'filestore', "%s-prod" % build.dest)):
+                os.makedirs(
+                    os.path.join(build._path('datadir'), 'filestore', "%s-prod" % build.dest)
+                )
+            fl_cmd = "cp %s/* %s -Rf" %(os.path.join(config['data_dir'], 'filestore', build.repo_id.template_db) , os.path.join(build._path('datadir'), 'filestore', "%s-prod" % build.dest))
+            os.system(fl_cmd)
         return self._spawn(cmd, lock_path, log_path, cpu_limit=None)
